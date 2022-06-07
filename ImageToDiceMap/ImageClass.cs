@@ -3,6 +3,8 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Drawing;
 using static ImageDiceMap.Dice;
+using System.Drawing.Drawing2D;
+using System.Diagnostics;
 
 namespace ImageDiceMap
 {
@@ -30,11 +32,49 @@ namespace ImageDiceMap
             Width = Image.Width;
             Height = Image.Height;
 
+            ResizeImage();
             CropImage();
             Encode();
             ConvertToDiceMap();
 
 
+        }
+
+        private void ResizeImage()
+        {
+            int coefficient = Height * Width / 200000;
+
+            Size size = new Size(Height/coefficient, Width/coefficient);
+            //Get the image current width  
+            int sourceWidth = Height;
+            //Get the image current height  
+            int sourceHeight = Width;
+            Debug.WriteLine(coefficient);
+            Debug.WriteLine(size.Width + " " + size.Height);
+            Debug.WriteLine(sourceWidth + " " + sourceHeight);
+            float nPercent;
+            float nPercentW = ((float)size.Height / (float)sourceWidth);
+            float nPercentH = ((float)size.Width / (float)sourceHeight);
+
+            if (nPercentH < nPercentW)
+                nPercent = nPercentH;
+            else
+                nPercent = nPercentW;
+
+            //New Width and New Height 
+            int destWidth = (int)(sourceWidth * nPercent);
+            int destHeight = (int)(sourceHeight * nPercent);
+
+            Bitmap b = new Bitmap(destWidth, destHeight);
+            Graphics g = Graphics.FromImage((Image)b);
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+            // Draw image with new width and height  
+            g.DrawImage(Image, 0, 0, destWidth, destHeight);
+            g.Dispose();
+            Image = b;
+            Width = Image.Width;
+            Height= Image.Height;
         }
 
         private void CropImage()
@@ -61,11 +101,11 @@ namespace ImageDiceMap
 
             ColorArray = new Color[Height, Width];
 
-            for (int i = 0; i < Width; i++)
+            for (int i = 0; i < Height; i++)
             {
-                for (int j = 0; j < Height; j++)
+                for (int j = 0; j < Width; j++)
                 {
-                    ColorArray[j, i] = Image.GetPixel(i, j);
+                    ColorArray[i,j] = Image.GetPixel(j, i);
                 }
             }
 
@@ -82,16 +122,16 @@ namespace ImageDiceMap
 
             Pixels[,] encodedArray = new Pixels[Height, Width];
 
-            for (int i = 0; i < Width; i++)
+            for (int i = 0; i < Height; i++)
             {
-                for (int j = 0; j < Height; j++)
+                for (int j = 0; j < Width; j++)
                 {
-                    var val = (ColorArray[j, i].R + ColorArray[j, i].G + ColorArray[j, i].B) / 3;
+                    var val = (ColorArray[i,j].R + ColorArray[i,j].G + ColorArray[i,j].B) / 3;
 
-                    if (val >= 0 && val < 100)
-                        encodedArray[j, i] = Pixels.Black;
-                    else if (val >= 100 && val <= 256)
-                        encodedArray[j, i] = Pixels.White;
+                    if (val >= 0 && val < 128)
+                        encodedArray[i,j] = Pixels.Black;
+                    else if (val >= 128 && val <= 256)
+                        encodedArray[i,j] = Pixels.White;
                 }
 
                 EncodedArray = encodedArray;
@@ -111,21 +151,21 @@ namespace ImageDiceMap
 
             Dice[,] diceArray = new Dice[h_units, w_units];
 
-            for (int i = 0; i < w_units - 1; i++)
+            for (int i = 0; i < h_units - 1; i++)
             {
-                for (int j = 0; j < h_units - 1; j++)
+                for (int j = 0; j < w_units - 1; j++)
                 {
-                    int i1 = j * 3;
+                    int i1 = i * 3;
                     int i2 = i1 + 1;
                     int i3 = i2 + 2;
 
-                    int j1 = i * 3;
+                    int j1 = j * 3;
                     int j2 = j1 + 1;
                     int j3 = j2 + 2;
                     Pixels[,] scopeArray = new Pixels[3, 3] { { EncodedArray[i1, j1], EncodedArray[i1,j2], EncodedArray[i1, j3] },
                                                         { EncodedArray[i2, j1], EncodedArray[i2,j2], EncodedArray[i2, j3] },
                                                         { EncodedArray[i3, j1], EncodedArray[i3,j2], EncodedArray[i3, j3] }};
-                    diceArray[j, i] = DetectDice(scopeArray);
+                    diceArray[i,j] = DetectDice(scopeArray);
                 }
             }
 
